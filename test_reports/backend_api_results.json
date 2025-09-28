@@ -1,0 +1,114 @@
+{
+  "total_tests": 14,
+  "passed_tests": 11,
+  "failed_tests": 3,
+  "success_rate": 78.57142857142857,
+  "test_results": [
+    {
+      "test_name": "API Root Endpoint",
+      "success": true,
+      "details": "Status: 200, Message: Basler Camera Application API",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.101547"
+    },
+    {
+      "test_name": "Get Cameras List",
+      "success": true,
+      "details": "Status: 200, Cameras found: 0",
+      "response_data": [],
+      "timestamp": "2025-09-28T01:08:43.400058"
+    },
+    {
+      "test_name": "System Status",
+      "success": true,
+      "details": "Status: 200, Camera Support: True, Total Cameras: 0",
+      "response_data": {
+        "timestamp": "2025-09-28T01:08:43.407833+00:00",
+        "total_cameras": 0,
+        "connected_cameras": 0,
+        "streaming_cameras": 0,
+        "camera_support": true,
+        "cameras": []
+      },
+      "timestamp": "2025-09-28T01:08:43.409263"
+    },
+    {
+      "test_name": "Connect Non-existent Camera",
+      "success": true,
+      "details": "Correctly returned 400 for non-existent camera",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.415906"
+    },
+    {
+      "test_name": "Disconnect Non-existent Camera",
+      "success": true,
+      "details": "Gracefully handled disconnect",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.422258"
+    },
+    {
+      "test_name": "Configure Non-existent Camera",
+      "success": false,
+      "details": "Expected 400, got 422",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.467384"
+    },
+    {
+      "test_name": "Start Streaming Non-existent Camera",
+      "success": true,
+      "details": "Correctly returned 400 for streaming",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.475009"
+    },
+    {
+      "test_name": "Stop Streaming Non-existent Camera",
+      "success": true,
+      "details": "Gracefully handled stop streaming",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.480807"
+    },
+    {
+      "test_name": "Get Frame Non-existent Camera",
+      "success": true,
+      "details": "Correctly returned 404 for frame request",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.489026"
+    },
+    {
+      "test_name": "Save Configuration",
+      "success": true,
+      "details": "Status: 200, Message: Save configuration updated",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.534616"
+    },
+    {
+      "test_name": "API Timeout Behavior",
+      "success": false,
+      "details": "Expected timeout but got response",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.843478"
+    },
+    {
+      "test_name": "Invalid Endpoint /api/invalid",
+      "success": true,
+      "details": "Correctly returned 404",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.849467"
+    },
+    {
+      "test_name": "Invalid Endpoint /api/cameras/invalid/connect",
+      "success": false,
+      "details": "Expected 404, got 405",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.854784"
+    },
+    {
+      "test_name": "Invalid Endpoint /api/nonexistent",
+      "success": true,
+      "details": "Correctly returned 404",
+      "response_data": null,
+      "timestamp": "2025-09-28T01:08:43.859657"
+    }
+  ],
+  "timestamp": "2025-09-28T01:08:43.859703"
+}

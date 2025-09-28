@@ -366,8 +366,14 @@ const CameraApp = () => {
 
   useEffect(() => {
     const initializeApp = async () => {
-      await Promise.all([fetchCameras(), fetchSystemStatus()]);
-      setLoading(false);
+      try {
+        await Promise.all([fetchCameras(), fetchSystemStatus()]);
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        toast.error('Failed to initialize application');
+      } finally {
+        setLoading(false);
+      }
     };
     initializeApp();
 

@@ -13,8 +13,7 @@ import { Label } from './components/ui/label';
 import { Switch } from './components/ui/switch';
 import { Separator } from './components/ui/separator';
 import { AlertCircle, Camera, Play, Square, Settings, Save, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
-import { Toaster } from './components/ui/sonner';
+import { toast, Toaster } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;

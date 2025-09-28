@@ -341,16 +341,17 @@ const CameraApp = () => {
 
   const fetchCameras = async () => {
     try {
-      const response = await axios.get(`${API}/cameras`);
+      const response = await axios.get(`${API}/cameras`, { timeout: 5000 });
       setCameras(response.data);
     } catch (error) {
+      console.error('Failed to fetch cameras:', error);
       toast.error(`Failed to fetch cameras: ${error.response?.data?.detail || error.message}`);
     }
   };
 
   const fetchSystemStatus = async () => {
     try {
-      const response = await axios.get(`${API}/status`);
+      const response = await axios.get(`${API}/status`, { timeout: 5000 });
       setSystemStatus(response.data);
     } catch (error) {
       console.error('Failed to fetch system status:', error);

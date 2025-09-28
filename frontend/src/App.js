@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import axios from 'axios';
-import './App.css';
+import "@/App.css";
 
 // Import UI components
 import { Button } from './components/ui/button';

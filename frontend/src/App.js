@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import "@/App.css";
@@ -7,8 +7,11 @@ import "@/App.css";
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Badge } from './components/ui/badge';
-import { RefreshCw, Camera, AlertCircle } from 'lucide-react';
+import { RefreshCw, Camera, AlertCircle, Play, Square, Settings } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -18,6 +21,17 @@ const SimpleCameraApp = () => {
   const [cameras, setCameras] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [frames, setFrames] = useState({}); // Store latest frames by camera_id
+  const [currentSettings, setCurrentSettings] = useState({}); // Store current settings by camera_id
+  const [fps, setFps] = useState({}); // Store FPS by camera_id
+  const [configDialog, setConfigDialog] = useState({ open: false, camera: null });
+  const [configValues, setConfigValues] = useState({
+    exposure_time: '',
+    gain: '',
+    frame_rate: '',
+    width: '',
+    height: ''
+  });
 
   const fetchCameras = async () => {
     setLoading(true);
@@ -46,18 +60,158 @@ const SimpleCameraApp = () => {
     }
   };
 
+  const fetchFrame = async (cameraId) => {
+    try {
+      const response = await axios.get(`${API}/cameras/${cameraId}/frame`, { timeout: 1000 });
+      if (response.data) {
+        setFrames(prev => ({ ...prev, [cameraId]: response.data }));
+        
+        // Calculate FPS
+        const now = Date.now() / 1000; // seconds
+        setFps(prev => {
+          const timestamps = prev[cameraId]?.timestamps || [];
+          timestamps.push(now);
+          if (timestamps.length > 5) timestamps.shift();
+          
+          let currentFps = 0;
+          if (timestamps.length > 1) {
+            const timeDiff = timestamps[timestamps.length - 1] - timestamps[0];
+            currentFps = (timestamps.length - 1) / timeDiff;
+          }
+          
+          return { ...prev, [cameraId]: { fps: currentFps, timestamps } };
+        });
+      }
+    } catch (error) {
+      // Ignore errors for frame fetching
+    }
+  };
+
+  const fetchCameraSettings = async (cameraId) => {
+    try {
+      const response = await axios.get(`${API}/cameras/${cameraId}/settings`);
+      setCurrentSettings(prev => ({ ...prev, [cameraId]: response.data }));
+    } catch (error) {
+      // Settings may not be available
+    }
+  };
+
+  const connectCamera = async (cameraId) => {
+    try {
+      const response = await axios.post(`${API}/cameras/${cameraId}/connect`);
+      toast.success(response.data.message);
+      await fetchCameras(); // Refresh camera list
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to connect camera: ${errorMsg}`);
+    }
+  };
+
+  const disconnectCamera = async (cameraId) => {
+    try {
+      const response = await axios.post(`${API}/cameras/${cameraId}/disconnect`);
+      toast.success(response.data.message);
+      await fetchCameras();
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to disconnect camera: ${errorMsg}`);
+    }
+  };
+
+  const startStreaming = async (cameraId) => {
+    try {
+      const response = await axios.post(`${API}/cameras/${cameraId}/start-streaming`);
+      toast.success(response.data.message);
+      await fetchCameras();
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to start streaming: ${errorMsg}`);
+    }
+  };
+
+  const stopStreaming = async (cameraId) => {
+    try {
+      const response = await axios.post(`${API}/cameras/${cameraId}/stop-streaming`);
+      toast.success(response.data.message);
+      await fetchCameras();
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to stop streaming: ${errorMsg}`);
+    }
+  };
+
+  const openConfigDialog = (camera) => {
+    setConfigDialog({ open: true, camera });
+    // Reset values
+    setConfigValues({
+      exposure_time: '',
+      gain: '',
+      frame_rate: '',
+      width: '',
+      height: ''
+    });
+  };
+
+  const configureCamera = async () => {
+    if (!configDialog.camera) return;
+
+    const config = {};
+    const exp = parseFloat(configValues.exposure_time);
+    if (configValues.exposure_time && !isNaN(exp)) config.exposure_time = exp;
+    
+    const g = parseFloat(configValues.gain);
+    if (configValues.gain && !isNaN(g)) config.gain = g;
+    
+    const fps = parseFloat(configValues.frame_rate);
+    if (configValues.frame_rate && !isNaN(fps)) config.frame_rate = fps;
+    
+    const w = parseInt(configValues.width);
+    if (configValues.width && !isNaN(w)) config.width = w;
+    
+    const h = parseInt(configValues.height);
+    if (configValues.height && !isNaN(h)) config.height = h;
+
+    if (Object.keys(config).length === 0) {
+      toast.error('Please enter at least one valid setting');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${API}/cameras/${configDialog.camera.id}/configure`, config);
+      toast.success(response.data.message);
+      setConfigDialog({ open: false, camera: null });
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to configure camera: ${errorMsg}`);
+    }
+  };
+
   const handleRefresh = async () => {
     await Promise.all([fetchCameras(), fetchSystemStatus()]);
   };
+  const camerasRef = useRef(cameras);
+  camerasRef.current = cameras;
 
   useEffect(() => {
     // Initialize on load
     handleRefresh();
     
-    // Set up periodic status updates
-    const statusInterval = setInterval(fetchSystemStatus, 10000);
+    // Set up periodic status updates and frame fetching
+    const statusInterval = setInterval(async () => {
+      await fetchSystemStatus();
+      // Fetch frames for streaming cameras and settings for connected cameras
+      camerasRef.current.forEach(camera => {
+        if (camera.status === 'streaming') {
+          fetchFrame(camera.id);
+        }
+        if (camera.status in ['connected', 'streaming']) {
+          fetchCameraSettings(camera.id);
+        }
+      });
+    }, 2000); // Update every 2 seconds
+    
     return () => clearInterval(statusInterval);
-  }, []);
+  }, []); // Remove cameras dependency to prevent re-mounting
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100" data-testid="camera-app">
@@ -154,12 +308,86 @@ const SimpleCameraApp = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Camera className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                        <p>Camera Ready - Connect to Start Streaming</p>
+                    {frames[camera.id] ? (
+                      <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                        <img 
+                          src={`data:image/jpeg;base64,${frames[camera.id].frame_data}`} 
+                          alt={`Camera ${camera.name} stream`}
+                          className="w-full h-full object-contain"
+                        />
                       </div>
+                    ) : (
+                      <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <Camera className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                          <p>{camera.status === 'streaming' ? 'Loading stream...' : 'Camera Ready - Connect to Start Streaming'}</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      {camera.status === 'disconnected' && (
+                        <Button 
+                          onClick={() => connectCamera(camera.id)} 
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Connect
+                        </Button>
+                      )}
+                      {camera.status === 'connected' && (
+                        <>
+                          <Button 
+                            onClick={() => disconnectCamera(camera.id)} 
+                            variant="outline"
+                          >
+                            Disconnect
+                          </Button>
+                          <Button 
+                            onClick={() => startStreaming(camera.id)} 
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Play className="h-4 w-4 mr-2" />
+                            Start Streaming
+                          </Button>
+                        </>
+                      )}
+                      {camera.status === 'streaming' && (
+                        <Button 
+                          onClick={() => stopStreaming(camera.id)} 
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          <Square className="h-4 w-4 mr-2" />
+                          Stop Streaming
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={() => openConfigDialog(camera)} 
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
                     </div>
+                    {/* Camera Info */}
+                    {currentSettings[camera.id] && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                          {currentSettings[camera.id].exposure_time !== undefined && (
+                            <div>Exposure: {currentSettings[camera.id].exposure_time.toFixed(1)} μs</div>
+                          )}
+                          {currentSettings[camera.id].gain !== undefined && (
+                            <div>Gain: {currentSettings[camera.id].gain.toFixed(1)}</div>
+                          )}
+                          {currentSettings[camera.id].frame_rate !== undefined && (
+                            <div>FPS: {currentSettings[camera.id].frame_rate.toFixed(1)}</div>
+                          )}
+                          {fps[camera.id] && (
+                            <div className="text-green-600 font-semibold">
+                              Live FPS: {fps[camera.id].fps.toFixed(1)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -169,6 +397,90 @@ const SimpleCameraApp = () => {
       </div>
       
       <Toaster position="top-right" />
+
+      {/* Camera Configuration Dialog */}
+      <Dialog open={configDialog.open} onOpenChange={(open) => setConfigDialog({ open, camera: open ? configDialog.camera : null })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Configure Camera</DialogTitle>
+            <DialogDescription>
+              Adjust camera settings for {configDialog.camera?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="exposure" className="text-right">
+                Exposure (μs)
+              </Label>
+              <Input
+                id="exposure"
+                type="number"
+                placeholder="e.g. 10000"
+                value={configValues.exposure_time}
+                onChange={(e) => setConfigValues({...configValues, exposure_time: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="gain" className="text-right">
+                Gain
+              </Label>
+              <Input
+                id="gain"
+                type="number"
+                step="0.1"
+                placeholder="e.g. 1.0"
+                value={configValues.gain}
+                onChange={(e) => setConfigValues({...configValues, gain: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="fps" className="text-right">
+                FPS
+              </Label>
+              <Input
+                id="fps"
+                type="number"
+                step="0.1"
+                placeholder="e.g. 30"
+                value={configValues.frame_rate}
+                onChange={(e) => setConfigValues({...configValues, frame_rate: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="width" className="text-right">
+                Width
+              </Label>
+              <Input
+                id="width"
+                type="number"
+                placeholder="e.g. 640"
+                value={configValues.width}
+                onChange={(e) => setConfigValues({...configValues, width: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="height" className="text-right">
+                Height
+              </Label>
+              <Input
+                id="height"
+                type="number"
+                placeholder="e.g. 480"
+                value={configValues.height}
+                onChange={(e) => setConfigValues({...configValues, height: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={configureCamera}>Apply Settings</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
